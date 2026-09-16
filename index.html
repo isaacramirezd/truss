@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planificador de Puente de Truss 29x29</title>
+<style>
+  :root{
+    --bg:#12151c; --panel:#1b1f2a; --panel2:#232838; --border:#333a4d;
+    --text:#e8eaf0; --muted:#9aa2b8; --accent:#5b9dff; --accent2:#7ee0c3;
+    --green:#3ecf7e; --amber:#ffb84d; --red:#ff5d6c;
+    --truss:#c9cfdc; --truss-dark:#7b8296;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  #app{display:flex;flex-direction:column;height:100vh;}
+  header{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);
+    border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  header h1{font-size:15px;font-weight:600;margin:0 14px 0 0;white-space:nowrap;}
+  header .grp{display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--panel2);
+    border-radius:8px;border:1px solid var(--border);}
+  header label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px;white-space:nowrap;}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;
+    padding:6px 10px;font-size:12px;cursor:pointer;}
+  button:hover{background:#2a3145;}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#0b1220;font-weight:600;}
+  button.primary:hover{filter:brightness(1.08);}
+  input[type=number]{width:60px;background:var(--panel);color:var(--text);border:1px solid var(--border);
+    border-radius:5px;padding:3px 5px;font-size:12px;}
+  input[type=text]{background:var(--panel);color:var(--text);border:1px solid var(--border);
+    border-radius:5px;padding:4px 6px;font-size:12px;width:100%;}
+  input[type=checkbox]{accent-color:var(--accent);}
+  #body{flex:1;display:flex;min-height:0;}
+  aside{width:230px;flex:0 0 230px;background:var(--panel);border-right:1px solid var(--border);
+    overflow-y:auto;padding:10px;}
+  aside.right{border-right:none;border-left:1px solid var(--border);width:300px;flex-basis:300px;}
+  .sec{margin-bottom:16px;}
+  .sec h3{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+    margin:0 0 8px 2px;display:flex;justify-content:space-between;align-items:center;}
+  .palette-item{display:flex;align-items:center;gap:8px;padding:7px 8px;margin-bottom:6px;
+    background:var(--panel2);border:1px solid var(--border);border-radius:8px;cursor:grab;
+    font-size:12px;user-select:none;}
+  .palette-item:active{cursor:grabbing;}
+  .palette-item svg{flex:0 0 auto;}
+  .palette-item .lbl{flex:1;}
+  .palette-item .sub{color:var(--muted);font-size:10px;}
+  #stageWrap{flex:1;overflow:auto;background:
+      repeating-linear-gradient(90deg, #1a1e28 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(0deg, #1a1e28 0 1px, transparent 1px 40px), #10131a;
+    position:relative;}
+  #stageHint{position:absolute;top:10px;left:10px;background:rgba(20,24,34,.9);border:1px solid var(--border);
+    border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);max-width:360px;z-index:5;}
+  svg#stage{display:block;touch-action:none;}
+  body.is-dragging, body.is-dragging *{cursor:grabbing !important; user-select:none !important;}
+  .elem{touch-action:none;}
+  .joint-dot circle{fill:var(--truss-dark);}
+  .seg-rail{stroke:var(--truss);stroke-width:3;}
+  .seg-brace{stroke:var(--truss-dark);stroke-width:1.6;}
+  .seg-corner{fill:#eef1f8;stroke:var(--truss-dark);stroke-width:1;}
+  .seg-hit{fill:transparent;cursor:grab;}
+  .seg-label{fill:var(--muted);font-size:10px;text-anchor:middle;}
+  .dim-line{stroke:var(--accent2);stroke-width:1.2;}
+  .dim-text{fill:var(--accent2);font-size:12px;text-anchor:middle;font-weight:600;}
+  .tick-text{fill:var(--muted);font-size:9px;text-anchor:middle;}
+  .elem{cursor:grab;}
+  .elem.selected .sel-ring{stroke:var(--accent);stroke-width:2;stroke-dasharray:3 2;fill:none;}
+  .elem-label{font-size:10px;fill:var(--text);text-anchor:middle;}
+  .elem-sub{font-size:9px;fill:var(--muted);text-anchor:middle;}
+  .ground-line{stroke:var(--border);stroke-width:1.5;stroke-dasharray:6 4;}
+  .ceil-hatch line{stroke:var(--border);stroke-width:1.5;}
+  .drop-hint{fill:var(--accent);opacity:.15;}
+  #results{font-size:12px;}
+  table.spans{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px;}
+  table.spans th, table.spans td{padding:5px 4px;text-align:center;border-bottom:1px solid var(--border);}
+  table.spans th{color:var(--muted);font-weight:500;font-size:10px;text-transform:uppercase;}
+  .pill{display:inline-block;padding:2px 7px;border-radius:20px;font-weight:700;font-size:11px;}
+  .pill.ok{background:rgba(62,207,126,.18);color:var(--green);}
+  .pill.warn{background:rgba(255,184,77,.18);color:var(--amber);}
+  .pill.bad{background:rgba(255,93,108,.18);color:var(--red);}
+  .banner{padding:8px 10px;border-radius:8px;font-size:11.5px;margin-bottom:8px;line-height:1.4;}
+  .banner.info{background:rgba(91,157,255,.12);border:1px solid rgba(91,157,255,.35);color:#bcd6ff;}
+  .banner.warn{background:rgba(255,184,77,.12);border:1px solid rgba(255,184,77,.35);color:#ffe0ad;}
+  .banner.bad{background:rgba(255,93,108,.12);border:1px solid rgba(255,93,108,.35);color:#ffc0c6;}
+  .propfield{margin-bottom:8px;}
+  .propfield label{display:block;font-size:10.5px;color:var(--muted);margin-bottom:3px;}
+  .propfield .row{display:flex;gap:6px;align-items:center;}
+  .divider{height:1px;background:var(--border);margin:10px 0;}
+  .empty{color:var(--muted);font-size:12px;padding:6px 2px;}
+  .helpbox{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:none;align-items:center;justify-content:center;}
+  .helpbox.show{display:flex;}
+  .helpcard{background:var(--panel);border:1px solid var(--border);border-radius:12px;max-width:640px;
+    max-height:82vh;overflow-y:auto;padding:22px 26px;font-size:13px;line-height:1.55;}
+  .helpcard h2{margin-top:0;font-size:17px;}
+  .helpcard h3{font-size:13px;color:var(--accent2);margin:16px 0 6px;}
+  .helpcard code{background:var(--panel2);padding:1px 5px;border-radius:4px;}
+  .closebtn{float:right;}
+  .legend{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;}
+  .legend span{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--muted);}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:#2c3245;border-radius:6px;}
+  .weighttypes{font-size:11px;}
+  .weighttypes .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;}
+  .weighttypes .row span{flex:1;color:var(--muted);}
+  footer.credit{font-size:10px;color:var(--muted);text-align:center;padding:4px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🪛 Planificador Puente Truss 29x29</h1>
+    <div class="grp">
+      <label>Zoom <input type="range" id="zoomRange" min="40" max="180" value="90"></label>
+    </div>
+    <div class="grp">
+      <label><input type="checkbox" id="snapProx" checked> Proximidad</label>
+      <label><input type="checkbox" id="snapGrid" checked> Rejilla 50cm</label>
+      <label><input type="checkbox" id="snapCenter" checked> Centro/simetría</label>
+    </div>
+    <div class="grp">
+      <button id="btnExport">⭳ Exportar JSON</button>
+      <button id="btnImport">⭱ Importar JSON</button>
+      <input type="file" id="fileImport" accept=".json" style="display:none">
+    </div>
+    <div class="grp">
+      <button id="btnClear">🗑 Vaciar todo</button>
+      <button id="btnHelp">ℹ️ Cómo funciona / cómo se calcula</button>
+    </div>
+  </header>
+
+  <div id="body">
+    <aside id="left">
+      <div class="sec">
+        <h3>Tramos de truss 29x29</h3>
+        <div id="palTruss"></div>
+      </div>
+      <div class="sec">
+        <h3>Apoyos / suspensión</h3>
+        <div id="palSupports"></div>
+      </div>
+      <div class="sec">
+        <h3>Cargas</h3>
+        <div id="palLoads"></div>
+      </div>
+      <div class="sec">
+        <h3>Pantalla LED</h3>
+        <div id="palLed"></div>
+      </div>
+    </aside>
+
+    <div id="stageWrap">
+      <div id="stageHint">Arrastra un tramo de truss aquí para empezar a construir el puente.</div>
+      <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <aside class="right" id="right">
+      <div class="sec" id="propSec">
+        <h3>Propiedades</h3>
+        <div id="propBody" class="empty">Selecciona un elemento del puente para editar sus propiedades.</div>
+      </div>
+      <div class="divider"></div>
+      <div class="sec">
+        <h3>Pesos por tipo de elemento <button id="btnWtHelp" style="padding:2px 6px;font-size:10px;">?</button></h3>
+        <div id="weightTypes" class="weighttypes"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="sec">
+        <h3>Parámetros de cálculo</h3>
+        <div class="propfield">
+          <label><input type="checkbox" id="includeSelf"> Incluir peso propio del truss en el cálculo (ver ℹ️)</label>
+        </div>
+        <div class="propfield">
+          <label>Margen de seguridad adicional (%)</label>
+          <input type="number" id="marginPct" value="0" min="0" max="90" style="width:70px;">
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="sec" id="resultsSec">
+        <h3>Resultado de carga</h3>
+        <div id="results"></div>
+      </div>
+    </aside>
+  </div>
+  <footer class="credit">Herramienta de planificación — no sustituye el cálculo de un ingeniero/rigger certificado. Ver "Cómo funciona".</footer>
+</div>
+
+<div class="helpbox" id="helpbox">
+  <div class="helpcard">
+    <button class="closebtn" id="helpClose">✕ Cerrar</button>
+    <h2>Cómo funciona esta herramienta</h2>
+    <p>Esta app te permite montar visualmente un puente de truss cuadrado 29x29 (spigot), colocar sus apoyos
+    (torres, puntos de motor o cubos con patas en los extremos) y las cargas que colgarías (focos, pantallas LED
+    por bumpers + módulos), y estima a qué porcentaje de su capacidad trabaja cada tramo entre apoyos.</p>
+
+    <h3>Datos de fábrica usados (ficha GPPSST2929)</h3>
+    <p>Material 6061-T6/6082-T6, tubo principal Ø50x3mm, peso ~7.8kg/m. La ficha da dos escenarios de carga por
+    cada luz: <b>UDL</b> (carga repartida, en <b>kg por metro lineal</b>) y <b>Punto</b> (carga puntual total
+    centrada, en kg). Se interpolan linealmente entre los tramos dados (2, 4, 6, 8, 10, 12, 14m):</p>
+    <p style="font-size:11px;color:var(--muted)">
+    2m: 1400kg/m · 1248kg pto · 4m: 435kg/m · 940kg pto · 6m: 265kg/m · 738kg pto · 8m: 166kg/m · 595kg pto ·
+    10m: 123kg/m · 500kg pto · 12m: 81kg/m · 433kg pto · 14m: 58kg/m · 380kg pto.
+    Para luces &lt;2m se usa (de forma conservadora) el valor de 2m. Para luces &gt;14m se extrapola
+    linealmente la pendiente de la tabla — se avisa cuando esto ocurre, ya que el fabricante no certifica ese rango.
+    <br><i>Nota: la imagen original solo indica "(kg)" en la fila UDL, pero al contrastarla con la fila de carga
+    puntual (una carga UDL total debería rondar el doble de la carga puntual centrada, por teoría de vigas) los
+    números solo cuadran de forma consistente si esa fila es kg/m. Si tu ficha técnica oficial confirma que en
+    realidad es un total, avísame y lo ajusto.</i></p>
+
+    <h3>Método de cálculo</h3>
+    <p>Cada tramo entre dos apoyos consecutivos se trata como una <b>viga simplemente apoyada independiente</b>
+    (no como viga continua). Esto es una simplificación conservadora habitual: una viga continua real suele
+    aguantar algo más gracias a la continuidad entre vanos, así que tratarlos por separado no sobreestima la
+    capacidad. Los voladizos (tramos de truss que sobresalen del apoyo más externo) NO se calculan — solo se
+    avisa de su peso y longitud, porque ese caso no está cubierto por esta tabla.</p>
+    <p>Para cada tramo se calculan las reacciones y el <b>momento flector máximo real</b> (por superposición de
+    todas las cargas puntuales según su posición exacta, más el peso propio si activas esa opción). Ese momento
+    se compara con un <b>momento admisible</b> obtenido a partir de la tabla del fabricante:</p>
+    <p style="font-size:11px;color:var(--muted)">M_adm_UDL = (UDL_max(L)·L) · L / 8 &nbsp;·&nbsp; M_adm_punto = Punto_max(L) · L / 4 &nbsp;·&nbsp;
+    se usa el menor de los dos (más conservador), dividido entre (1 + margen de seguridad extra que definas).</p>
+    <p>El <b>% de capacidad usada</b> = momento real / momento admisible. Los kg "restantes estimados" asumen que
+    el peso añadido seguiría el mismo patrón/posiciones que la carga actual — es una estimación, no un límite exacto.</p>
+
+    <h3>Sobre el peso propio</h3>
+    <p>La ficha indica el peso del truss (~7.8kg/m) como dato aparte de la tabla de carga. La convención habitual
+    de fabricantes es que los valores de la tabla ya representan la <b>carga adicional</b> que se puede colgar
+    (el peso propio ya está contemplado en el cálculo de fábrica). Por eso, por defecto, el peso propio del truss
+    <b>no</b> se suma a la carga real — puedes activarlo si tu documentación específica indica lo contrario.</p>
+
+    <h3>Qué NO calcula esta herramienta</h3>
+    <p>No comprueba cortante, torsión, pandeo lateral, resistencia de conectores/spigots, cargas asimétricas fuera
+    del plano, efectos dinámicos (viento, personas subiendo), ni voladizos. Es una ayuda de planificación rápida.
+    Para montajes reales, especialmente con público debajo, usa siempre el software o la validación de un
+    rigger/ingeniero certificado y la documentación oficial del fabricante.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================== DATOS DE FÁBRICA ============================== */
+const TABLE_SPANS   = [2,4,6,8,10,12,14];
+const TABLE_UDL_KG  = [1400,435,265,166,123,81,58];
+const TABLE_PT_KG   = [1248,940,738,595,500,433,380];
+const SELF_WEIGHT_KG_PER_M = 7.8;
+const TRUSS_LENGTHS = [1,1.5,2,2.5,3];
+const DEFAULT_COLORS = { foco:'#ffb84d', bumper:'#5b9dff', module:'#7ee0c3' };
+function hexToRgba(hex, alpha){
+  const h = (hex||'#7ee0c3').replace('#','');
+  const r=parseInt(h.substring(0,2),16)||0, g=parseInt(h.substring(2,4),16)||0, b=parseInt(h.substring(4,6),16)||0;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+function ensureColors(){
+  // compatibilidad con diseños exportados antes de que existiera el color por elemento
+  state.loads.forEach(l=>{ if(!l.color) l.color = DEFAULT_COLORS.foco; });
+  state.bumpers.forEach(b=>{ if(!b.color) b.color = DEFAULT_COLORS.bumper; });
+  state.modules.forEach(m=>{ if(!m.color) m.color = DEFAULT_COLORS.module; });
+}
+
+function interp(spans, values, L){
+  if(L<=spans[0]) return {value:values[0], extrapolated:false};
+  const n=spans.length;
+  if(L>=spans[n-1]){
+    const x0=spans[n-2],x1=spans[n-1],y0=values[n-2],y1=values[n-1];
+    const slope=(y1-y0)/(x1-x0);
+    let v=y1+slope*(L-x1);
+    if(v<0) v=Math.max(0, y1*0.05);
+    return {value:v, extrapolated:true};
+  }
+  for(let i=0;i<n-1;i++){
+    if(L>=spans[i] && L<=spans[i+1]){
+      const t=(L-spans[i])/(spans[i+1]-spans[i]);
+      return {value:values[i]+t*(values[i+1]-values[i]), extrapolated:false};
+    }
+  }
+  return {value:values[n-1], extrapolated:true};
+}
+
+function analyzeSpan(spanStart, spanEnd, pointLoads, opts){
+  const L=spanEnd-spanStart;
+  if(L<=0.02) return null;
+  const wSelf = opts.includeSelf ? SELF_WEIGHT_KG_PER_M : 0;
+  const loads = pointLoads
+    .filter(p=>p.x>=spanStart-1e-6 && p.x<=spanEnd+1e-6)
+    .map(p=>({a:p.x-spanStart, w:p.w}))
+    .sort((a,b)=>a.a-b.a);
+  const selfTotal = wSelf*L;
+  const payloadTotal = loads.reduce((s,p)=>s+p.w,0);
+  let Rleft = selfTotal/2, Rright = selfTotal/2;
+  loads.forEach(p=>{ Rleft += p.w*(L-p.a)/L; Rright += p.w*(p.a)/L; });
+  const N=240;
+  let Mmax=0, xAtMax=0;
+  for(let i=0;i<=N;i++){
+    const x=L*i/N;
+    let M=Rleft*x - wSelf*x*x/2;
+    for(const p of loads){ if(p.a<=x) M-=p.w*(x-p.a); }
+    if(Math.abs(M)>Math.abs(Mmax)){ Mmax=M; xAtMax=x; }
+  }
+  const udlI = interp(TABLE_SPANS, TABLE_UDL_KG, L); // udlI.value = kg por metro lineal (UDL)
+  const ptI  = interp(TABLE_SPANS, TABLE_PT_KG, L);  // ptI.value  = kg totales, carga puntual centrada
+  const Mallow_udl = (udlI.value*L)*L/8; // carga total = kg/m * L; M = w_total*L/8
+  const Mallow_pt  = ptI.value*L/4;
+  let Mallow = Math.min(Mallow_udl, Mallow_pt);
+  Mallow = Mallow / (1 + (opts.marginPct||0)/100);
+  const util = Mallow>0 ? Math.abs(Mmax)/Mallow : Infinity;
+  let remainingKg = null;
+  if(isFinite(util)){
+    if(payloadTotal>0.001 && util>0){
+      remainingKg = payloadTotal*(1/util - 1);
+    } else if(util < 1) {
+      // sin carga puntual real de referencia -> mostrar capacidad UDL total restante para este vano
+      remainingKg = (udlI.value*L)*(1-util);
+    } else {
+      remainingKg = 0;
+    }
+  }
+  return {
+    spanStart, spanEnd, L, Rleft, Rright, Mmax, xAtMax,
+    selfTotal, payloadTotal, totalLoad: selfTotal+payloadTotal,
+    udlAllowKg: udlI.value, ptAllowKg: ptI.value,
+    extrapolated: udlI.extrapolated||ptI.extrapolated,
+    Mallow, util, remainingKg
+  };
+}
+
+/* exponer para test/consola */
+window.__truss_calc__ = {interp, analyzeSpan, TABLE_SPANS, TABLE_UDL_KG, TABLE_PT_KG};
+
+/* ============================== ESTADO ============================== */
+const state = {
+  scale: 90, // px por metro
+  snap: {prox:true, grid:true, center:true},
+  chain: [], // [{id, len}]
+  supports: [], // [{id,type:'torre'|'motor'|'cubo', x}]
+  loads: [], // [{id, kind:'foco', x, name, weight}]
+  bumpers: [], // [{id, type:'simple'|'doble', xLeft}]
+  modules: [], // [{id, type:'50x50'|'50x100'|'100x50', xLeft}]  (orden = orden de apilado)
+  types: {
+    foco_default: 5,
+    bumper_simple: 4,
+    bumper_doble: 6,
+    mod_50x50: 6.5,
+    mod_50x100: 13,
+    mod_100x50: 13
+  },
+  includeSelf: false,
+  marginPct: 0,
+  selected: null // {kind:'seg'|'support'|'load'|'bumper'|'module', id}
+};
+
+let idc=1;
+function newId(){ return 'e'+(idc++); }
+
+function totalLength(){ return state.chain.reduce((s,c)=>s+c.len,0); }
+function chainJoints(chain){
+  chain = chain||state.chain;
+  const j=[0]; let acc=0;
+  for(const c of chain){ acc+=c.len; j.push(acc); }
+  return j;
+}
+function chainStarts(chain){
+  chain = chain||state.chain;
+  const starts=[]; let acc=0;
+  for(const c of chain){ starts.push(acc); acc+=c.len; }
+  return starts;
+}
+
+/* ============================== GEOMETRÍA DE DIBUJO ============================== */
+const LAYOUT = { ceilY:34, trussY:150, groundY:400, leftPad:60, topPad:10, rightPad:80 };
+
+function trussHpx(){ return Math.max(16, Math.min(60, 0.29*state.scale)); }
+function mToPx(m){ return LAYOUT.leftPad + m*state.scale; }
+function pxToM(px){ return (px-LAYOUT.leftPad)/state.scale; }
+
+/* ============================== PALETA ============================== */
+const svgNS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs){
+  const el=document.createElementNS(svgNS, tag);
+  for(const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+function trussIconSvg(w,h){
+  const s=svgEl('svg',{width:w,height:h,viewBox:`0 0 ${w} ${h}`});
+  s.appendChild(svgEl('rect',{x:1,y:1,width:w-2,height:h-2,fill:'none',stroke:'#c9cfdc','stroke-width':2}));
+  s.appendChild(svgEl('line',{x1:1,y1:1,x2:w-1,y2:h-1,stroke:'#7b8296','stroke-width':1.4}));
+  s.appendChild(svgEl('line',{x1:1,y1:h-1,x2:w-1,y2:1,stroke:'#7b8296','stroke-width':1.4}));
+  return s;
+}
+function iconGeneric(paths, w,h){
+  const s=svgEl('svg',{width:w,height:h,viewBox:`0 0 ${w} ${h}`});
+  paths.forEach(p=>s.appendChild(svgEl(p.tag,p.attrs)));
+  return s;
+}
+
+function buildPalette(){
+  const palTruss=document.getElementById('palTruss'); palTruss.innerHTML='';
+  TRUSS_LENGTHS.forEach(len=>{
+    const item=document.createElement('div');
+    item.className='palette-item'; item.draggable=true;
+    item.dataset.kind='truss'; item.dataset.len=len;
+    item.appendChild(trussIconSvg(46,16));
+    const lbl=document.createElement('div'); lbl.className='lbl';
+    lbl.innerHTML = len+' m <div class="sub">~'+(len*SELF_WEIGHT_KG_PER_M).toFixed(1)+'kg</div>';
+    item.appendChild(lbl);
+    item.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('text/plain', JSON.stringify({kind:'truss', len}));
+    });
+    palTruss.appendChild(item);
+  });
+
+  const palSup=document.getElementById('palSupports'); palSup.innerHTML='';
+  const sups=[
+    {type:'torre', label:'Torre de soporte', sub:'apoyo inferior, libre', icon:iconGeneric([
+      {tag:'line',attrs:{x1:20,y1:2,x2:20,y2:26,stroke:'#c9cfdc','stroke-width':2}},
+      {tag:'polygon',attrs:{points:'10,26 30,26 20,2',fill:'none',stroke:'#c9cfdc','stroke-width':1.6}},
+      {tag:'line',attrs:{x1:6,y1:28,x2:34,y2:28,stroke:'#7b8296','stroke-width':2}}
+    ],40,30)},
+    {type:'motor', label:'Punto de motor', sub:'apoyo superior, libre', icon:iconGeneric([
+      {tag:'line',attrs:{x1:6,y1:2,x2:34,y2:2,stroke:'#7b8296','stroke-width':2}},
+      {tag:'line',attrs:{x1:20,y1:2,x2:20,y2:20,stroke:'#c9cfdc','stroke-width':2}},
+      {tag:'circle',attrs:{cx:20,cy:24,r:4,fill:'none',stroke:'#c9cfdc','stroke-width':1.6}}
+    ],40,30)},
+    {type:'cubo', label:'Cubo con patas', sub:'solo extremos', icon:iconGeneric([
+      {tag:'rect',attrs:{x:14,y:4,width:12,height:10,fill:'none',stroke:'#c9cfdc','stroke-width':1.6}},
+      {tag:'line',attrs:{x1:14,y1:14,x2:6,y2:26,stroke:'#7b8296','stroke-width':2}},
+      {tag:'line',attrs:{x1:26,y1:14,x2:34,y2:26,stroke:'#7b8296','stroke-width':2}}
+    ],40,30)},
+  ];
+  sups.forEach(s=>{
+    const item=document.createElement('div'); item.className='palette-item'; item.draggable=true;
+    item.appendChild(s.icon);
+    const lbl=document.createElement('div'); lbl.className='lbl';
+    lbl.innerHTML=s.label+'<div class="sub">'+s.sub+'</div>';
+    item.appendChild(lbl);
+    item.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('text/plain', JSON.stringify({kind:'support', type:s.type}));
+    });
+    palSup.appendChild(item);
+  });
+
+  const palLoads=document.getElementById('palLoads'); palLoads.innerHTML='';
+  const foco=document.createElement('div'); foco.className='palette-item'; foco.draggable=true;
+  foco.appendChild(iconGeneric([
+    {tag:'polygon',attrs:{points:'8,2 32,2 24,20 16,20',fill:'none',stroke:'#c9cfdc','stroke-width':1.6}},
+    {tag:'line',attrs:{x1:20,y1:20,x2:20,y2:26,stroke:'#7b8296','stroke-width':1.6}}
+  ],40,28));
+  const focoLbl=document.createElement('div'); focoLbl.className='lbl';
+  focoLbl.innerHTML='Foco / elemento<div class="sub">peso individual</div>';
+  foco.appendChild(focoLbl);
+  foco.addEventListener('dragstart', e=>{
+    e.dataTransfer.setData('text/plain', JSON.stringify({kind:'load', ltype:'foco'}));
+  });
+  palLoads.appendChild(foco);
+
+  const palLed=document.getElementById('palLed'); palLed.innerHTML='';
+  const ledItems=[
+    {kind:'bumper', sub:'simple', label:'Bumper simple', icon:iconGeneric([
+      {tag:'rect',attrs:{x:2,y:10,width:36,height:6,fill:'none',stroke:'#c9cfdc','stroke-width':1.6}},
+      {tag:'circle',attrs:{cx:20,cy:6,r:3,fill:'none',stroke:'#c9cfdc','stroke-width':1.4}}
+    ],40,20)},
+    {kind:'bumper', sub:'doble', label:'Bumper doble', icon:iconGeneric([
+      {tag:'rect',attrs:{x:2,y:10,width:36,height:6,fill:'none',stroke:'#c9cfdc','stroke-width':1.6}},
+      {tag:'circle',attrs:{cx:12,cy:6,r:3,fill:'none',stroke:'#c9cfdc','stroke-width':1.4}},
+      {tag:'circle',attrs:{cx:28,cy:6,r:3,fill:'none',stroke:'#c9cfdc','stroke-width':1.4}}
+    ],40,20)},
+    {kind:'module', sub:'50x50', label:'Módulo 50x50', icon:iconGeneric([
+      {tag:'rect',attrs:{x:6,y:2,width:20,height:20,fill:'none',stroke:'#c9cfdc','stroke-width':1.6}}
+    ],40,24)},
+    {kind:'module', sub:'50x100', label:'Módulo 50x100', icon:iconGeneric([
+      {tag:'rect',attrs:{x:10,y:1,width:14,height:26,fill:'none',stroke:'#c9cfdc','stroke-width':1.6}}
+    ],40,28)},
+    {kind:'module', sub:'100x50', label:'Módulo 100x50', icon:iconGeneric([
+      {tag:'rect',attrs:{x:2,y:6,width:36,height:14,fill:'none',stroke:'#c9cfdc','stroke-width':1.6}}
+    ],40,24)},
+  ];
+  ledItems.forEach(it=>{
+    const item=document.createElement('div'); item.className='palette-item'; item.draggable=true;
+    item.appendChild(it.icon);
+    const lbl=document.createElement('div'); lbl.className='lbl';
+    lbl.innerHTML=it.label;
+    item.appendChild(lbl);
+    item.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('text/plain', JSON.stringify({kind:it.kind, sub:it.sub}));
+    });
+    palLed.appendChild(item);
+  });
+}
+
+/* ============================== SNAPPING ============================== */
+function snapCandidatesX(){
+  const cands=[];
+  chainJoints().forEach(j=>cands.push(j));
+  if(state.snap.center){
+    cands.push(totalLength()/2);
+  }
+  if(state.snap.grid){
+    const tl=totalLength();
+    for(let g=0; g<=tl+1e-6; g+=0.5) cands.push(Math.round(g*1000)/1000);
+  }
+  if(state.snap.prox){
+    state.supports.forEach(s=>cands.push(s.x));
+    state.loads.forEach(l=>cands.push(l.x));
+    state.bumpers.forEach(b=>cands.push(b.xLeft+0.25));
+  }
+  return cands;
+}
+function snapX(rawM){
+  const thresholdM = 12/state.scale;
+  let best=null, bestD=thresholdM;
+  snapCandidatesX().forEach(c=>{
+    const d=Math.abs(c-rawM);
+    if(d<bestD){ bestD=d; best=c; }
+  });
+  return best!==null ? best : Math.round(rawM*100)/100;
+}
+function snapLeftEdgeGrid(rawM){
+  return Math.round(rawM/0.5)*0.5;
+}
+
+/* ============================== RENDER ============================== */
+const stage = document.getElementById('stage');
+const stageWrap = document.getElementById('stageWrap');
+const stageHint = document.getElementById('stageHint');
+
+function columnStacks(excludeId){
+  // skyline packing: columna 0.5m -> altura acumulada en metros
+  // excludeId: id de un bumper/módulo a omitir (se está arrastrando y se dibuja aparte, como "ghost" libre)
+  const heights = {};
+  const placed = []; // {kind, obj, cols:[idx...], topM, hM}
+  function colIdx(xLeft){ return Math.round(xLeft/0.5); }
+
+  state.bumpers.forEach(b=>{
+    if(b.id===excludeId) return;
+    const c = colIdx(b.xLeft);
+    const topM = heights[c]||0;
+    const hM = 0.14;
+    heights[c] = topM + hM;
+    placed.push({kind:'bumper', obj:b, cols:[c], topM, hM});
+  });
+  state.modules.forEach(m=>{
+    if(m.id===excludeId) return;
+    const wCols = m.type==='100x50' ? 2 : 1;
+    const hRows = m.type==='50x100' ? 1.0 : 0.5;
+    const c0 = colIdx(m.xLeft);
+    const cols=[]; for(let i=0;i<wCols;i++) cols.push(c0+i);
+    let topM = 0;
+    cols.forEach(c=>{ topM = Math.max(topM, heights[c]||0); });
+    cols.forEach(c=>{ heights[c] = topM + hRows; });
+    placed.push({kind:'module', obj:m, cols, topM, hM:hRows});
+  });
+  return placed;
+}
+
+function weightOfBumper(b){ return state.types['bumper_'+b.type] ?? 0; }
+function weightOfModule(m){ return state.types['mod_'+m.type] ?? 0; }
+
+function collectPointLoads(){
+  // devuelve [{x, w, ref}] combinando focos + columnas de bumper/led (repartidas por columna)
+  const list = [];
+  state.loads.forEach(l=>list.push({x:l.x, w:Number(l.weight)||0, ref:{kind:'load',id:l.id}}));
+  // LED: cada columna de 0.5m concentra el peso del bumper + módulos que la ocupan, en el centro de la columna
+  const colWeights = {}; // colIdx -> weight
+  state.bumpers.forEach(b=>{
+    const c = Math.round(b.xLeft/0.5);
+    colWeights[c] = (colWeights[c]||0) + weightOfBumper(b);
+  });
+  state.modules.forEach(m=>{
+    const wCols = m.type==='100x50' ? 2 : 1;
+    const c0 = Math.round(m.xLeft/0.5);
+    const share = weightOfModule(m)/wCols;
+    for(let i=0;i<wCols;i++){
+      const c=c0+i;
+      colWeights[c] = (colWeights[c]||0) + share;
+    }
+  });
+  Object.keys(colWeights).forEach(c=>{
+    const x = Number(c)*0.5 + 0.25;
+    if(colWeights[c]>0) list.push({x, w:colWeights[c], ref:{kind:'ledcol', col:c}});
+  });
+  return list;
+}
+
+function render(){
+  const draggingSegId = (dragCtx && dragCtx.moved && dragCtx.kind==='seg') ? dragCtx.id : null;
+  const draggingLedId = (dragCtx && dragCtx.moved && (dragCtx.kind==='bumper'||dragCtx.kind==='module')) ? dragCtx.id : null;
+  const draggedSeg = draggingSegId ? state.chain.find(c=>c.id===draggingSegId) : null;
+  const displayChain = draggedSeg ? state.chain.filter(c=>c.id!==draggingSegId) : state.chain;
+  const dJoints = chainJoints(displayChain);
+  const dStarts = chainStarts(displayChain);
+  let pendingIdx = null;
+  if(draggedSeg && dragCtx.rawM!=null){
+    let bestD=Infinity;
+    dJoints.forEach((j,i)=>{ const d=Math.abs(j-dragCtx.rawM); if(d<bestD){bestD=d; pendingIdx=i;} });
+    dragCtx.pendingIdx = pendingIdx;
+  }
+  const realTl = totalLength();
+  const tl = draggedSeg ? Math.max(0, realTl-draggedSeg.len) : realTl;
+  const th = trussHpx();
+  const stacks = columnStacks(draggingLedId);
+  let maxStackM = 0;
+  stacks.forEach(s=>{ maxStackM = Math.max(maxStackM, s.topM+s.hM); });
+  const loadsAreaPx = 40 + maxStackM*state.scale + 40;
+  const svgW = Math.max(700, mToPx(tl) + LAYOUT.rightPad);
+  const trussBottomY = LAYOUT.trussY + th;
+  const svgH = Math.max(LAYOUT.groundY+60, trussBottomY + loadsAreaPx);
+  stage.setAttribute('width', svgW);
+  stage.setAttribute('height', svgH);
+  stage.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+  stage.innerHTML='';
+
+  stageHint.style.display = state.chain.length ? 'none' : 'block';
+
+  // techo
+  const ceilY = LAYOUT.ceilY;
+  stage.appendChild(svgEl('line',{x1:0,y1:ceilY,x2:svgW,y2:ceilY, class:'ceil-hatch', stroke:'#333a4d','stroke-width':1.5}));
+  for(let x=0;x<svgW;x+=16){
+    stage.appendChild(svgEl('line',{x1:x,y1:ceilY,x2:x-8,y2:ceilY-8, stroke:'#333a4d','stroke-width':1}));
+  }
+  // suelo
+  stage.appendChild(svgEl('line',{x1:0,y1:LAYOUT.groundY,x2:svgW,y2:LAYOUT.groundY, class:'ground-line'}));
+
+  if(tl>0){
+    // cota total
+    const dimY = LAYOUT.trussY - 26;
+    const x0=mToPx(0), x1=mToPx(tl);
+    stage.appendChild(svgEl('line',{x1:x0,y1:dimY,x2:x1,y2:dimY, class:'dim-line'}));
+    stage.appendChild(svgEl('line',{x1:x0,y1:dimY-5,x2:x0,y2:dimY+5, class:'dim-line'}));
+    stage.appendChild(svgEl('line',{x1:x1,y1:dimY-5,x2:x1,y2:dimY+5, class:'dim-line'}));
+    const dimText = svgEl('text',{x:(x0+x1)/2, y:dimY-8, class:'dim-text'});
+    dimText.textContent = (draggedSeg? realTl : tl).toFixed(2)+' m'+(draggedSeg?' (moviendo tramo…)':'');
+    stage.appendChild(dimText);
+
+    // marcas de union entre tramos + longitudes
+    displayChain.forEach((seg,i)=>{
+      const sx = mToPx(dStarts[i]), ex = mToPx(dStarts[i]+seg.len);
+      const t = svgEl('text',{x:(sx+ex)/2, y:dimY+14, class:'tick-text'});
+      t.textContent = seg.len+'m';
+      stage.appendChild(t);
+    });
+  }
+
+  // ---- TRUSS ----
+  displayChain.forEach((seg,i)=>{
+    const g = svgEl('g',{class:'elem seg'+(state.selected&&state.selected.kind==='seg'&&state.selected.id===seg.id?' selected':''), 'data-id':seg.id, 'data-kind':'seg'});
+    const x = mToPx(dStarts[i]);
+    const w = seg.len*state.scale;
+    const yTop = LAYOUT.trussY, yBot = LAYOUT.trussY+th;
+    g.appendChild(svgEl('line',{x1:x,y1:yTop,x2:x+w,y2:yTop, class:'seg-rail'}));
+    g.appendChild(svgEl('line',{x1:x,y1:yBot,x2:x+w,y2:yBot, class:'seg-rail'}));
+    const nX = Math.max(1, Math.round(w/28));
+    for(let k=0;k<nX;k++){
+      const sx=x+k*(w/nX), ex=x+(k+1)*(w/nX);
+      g.appendChild(svgEl('line',{x1:sx,y1:yTop,x2:ex,y2:yBot, class:'seg-brace'}));
+      g.appendChild(svgEl('line',{x1:sx,y1:yBot,x2:ex,y2:yTop, class:'seg-brace'}));
+    }
+    [ [x,yTop],[x+w,yTop],[x,yBot],[x+w,yBot] ].forEach(([cx,cy])=>{
+      g.appendChild(svgEl('circle',{cx,cy,r:3.4, class:'seg-corner'}));
+    });
+    const hit = svgEl('rect',{x,y:yTop-4,width:w,height:(yBot-yTop)+8, class:'seg-hit'});
+    hit.addEventListener('pointerdown', e=>startDragSeg(e, seg.id));
+    g.appendChild(hit);
+    g.appendChild(svgEl('rect',{x,y:yTop-4,width:w,height:(yBot-yTop)+8, class:'sel-ring', fill:'none', 'pointer-events':'none'}));
+    stage.appendChild(g);
+  });
+
+  // ---- indicador de inserción + pieza flotante (mientras se arrastra un tramo) ----
+  if(draggedSeg){
+    const yTopT = LAYOUT.trussY, yBotT = LAYOUT.trussY+th;
+    if(pendingIdx!=null){
+      const ix = mToPx(dJoints[pendingIdx]);
+      stage.appendChild(svgEl('line',{x1:ix,y1:yTopT-14,x2:ix,y2:yBotT+14, stroke:'#5b9dff','stroke-width':3,'stroke-dasharray':'5 4','pointer-events':'none'}));
+    }
+    const gw = draggedSeg.len*state.scale;
+    const cursorM = dragCtx.rawM!=null ? dragCtx.rawM : 0;
+    const gx = mToPx(cursorM) - gw/2;
+    const gy = yTopT - 20;
+    const ghost = svgEl('g',{opacity:'0.72','pointer-events':'none'});
+    ghost.appendChild(svgEl('rect',{x:gx-5,y:gy-5,width:gw+10,height:th+10, fill:'rgba(91,157,255,.15)', stroke:'#5b9dff','stroke-width':1.6,rx:5}));
+    ghost.appendChild(svgEl('line',{x1:gx,y1:gy,x2:gx+gw,y2:gy, class:'seg-rail'}));
+    ghost.appendChild(svgEl('line',{x1:gx,y1:gy+th,x2:gx+gw,y2:gy+th, class:'seg-rail'}));
+    const nXg = Math.max(1, Math.round(gw/28));
+    for(let k=0;k<nXg;k++){
+      const sx=gx+k*(gw/nXg), ex=gx+(k+1)*(gw/nXg);
+      ghost.appendChild(svgEl('line',{x1:sx,y1:gy,x2:ex,y2:gy+th, class:'seg-brace'}));
+      ghost.appendChild(svgEl('line',{x1:sx,y1:gy+th,x2:ex,y2:gy, class:'seg-brace'}));
+    }
+    const glabel = svgEl('text',{x:gx+gw/2, y:gy-8, 'text-anchor':'middle', fill:'#5b9dff', 'font-size':11,'font-weight':700});
+    glabel.textContent = draggedSeg.len+'m';
+    ghost.appendChild(glabel);
+    stage.appendChild(ghost);
+  }
+
+  // ---- APOYOS ----
+  state.supports.forEach(s=>{
+    const x = mToPx(s.x);
+    const g = svgEl('g',{class:'elem support'+(state.selected&&state.selected.kind==='support'&&state.selected.id===s.id?' selected':''), 'data-id':s.id, 'data-kind':'support'});
+    if(s.type==='torre'){
+      const yTop = LAYOUT.trussY+th;
+      g.appendChild(svgEl('line',{x1:x,y1:yTop,x2:x,y2:LAYOUT.groundY, stroke:'#c9cfdc','stroke-width':2}));
+      g.appendChild(svgEl('polygon',{points:`${x-13},${LAYOUT.groundY} ${x+13},${LAYOUT.groundY} ${x},${LAYOUT.groundY-24}`, fill:'none', stroke:'#c9cfdc','stroke-width':1.6}));
+      g.appendChild(svgEl('line',{x1:x-16,y1:LAYOUT.groundY,x2:x+16,y2:LAYOUT.groundY, stroke:'#7b8296','stroke-width':2.4}));
+      const t=svgEl('text',{x, y:LAYOUT.groundY+16, class:'elem-label'}); t.textContent='Torre'; g.appendChild(t);
+    } else if(s.type==='motor'){
+      const yBot = LAYOUT.trussY;
+      g.appendChild(svgEl('line',{x1:x,y1:ceilY,x2:x,y2:yBot-10, stroke:'#c9cfdc','stroke-width':2}));
+      g.appendChild(svgEl('circle',{cx:x,cy:yBot-6,r:5, fill:'none', stroke:'#c9cfdc','stroke-width':1.6}));
+      const t=svgEl('text',{x, y:ceilY-6, class:'elem-label'}); t.textContent='Motor'; g.appendChild(t);
+    } else { // cubo
+      const yTop=LAYOUT.trussY+th;
+      g.appendChild(svgEl('rect',{x:x-13,y:yTop+2,width:26,height:16, fill:'none', stroke:'#c9cfdc','stroke-width':1.6}));
+      g.appendChild(svgEl('line',{x1:x-13,y1:yTop+18,x2:x-24,y2:yTop+40, stroke:'#7b8296','stroke-width':2}));
+      g.appendChild(svgEl('line',{x1:x+13,y1:yTop+18,x2:x+24,y2:yTop+40, stroke:'#7b8296','stroke-width':2}));
+      const t=svgEl('text',{x, y:yTop+54, class:'elem-label'}); t.textContent='Cubo'; g.appendChild(t);
+    }
+    const hit = svgEl('rect',{x:x-16,y:ceilY,width:32,height:LAYOUT.groundY-ceilY, fill:'transparent'});
+    hit.addEventListener('pointerdown', e=>startDragElem(e, 'support', s.id, s));
+    g.appendChild(hit);
+    g.appendChild(svgEl('circle',{cx:x, cy:LAYOUT.trussY+th/2, r:18, class:'sel-ring', fill:'none', 'pointer-events':'none'}));
+    stage.appendChild(g);
+  });
+
+  // ---- CARGAS (focos) ----
+  state.loads.forEach(l=>{
+    const x = mToPx(l.x);
+    const yTop = LAYOUT.trussY+th;
+    const g = svgEl('g',{class:'elem load'+(state.selected&&state.selected.kind==='load'&&state.selected.id===l.id?' selected':''), 'data-id':l.id, 'data-kind':'load'});
+    const lColor = l.color || DEFAULT_COLORS.foco;
+    g.appendChild(svgEl('line',{x1:x,y1:yTop,x2:x,y2:yTop+14, stroke:'#7b8296','stroke-width':1.4}));
+    g.appendChild(svgEl('polygon',{points:`${x-11},${yTop+14} ${x+11},${yTop+14} ${x+7},${yTop+30} ${x-7},${yTop+30}`, fill:hexToRgba(lColor,.35), stroke:lColor,'stroke-width':1.8}));
+    const t1=svgEl('text',{x,y:yTop+44,class:'elem-label'}); t1.textContent = l.name||'Foco'; g.appendChild(t1);
+    const t2=svgEl('text',{x,y:yTop+56,class:'elem-sub'}); t2.textContent = (Number(l.weight)||0)+' kg'; g.appendChild(t2);
+    const hit = svgEl('rect',{x:x-18,y:yTop,width:36,height:60, fill:'transparent'});
+    hit.addEventListener('pointerdown', e=>startDragElem(e,'load', l.id, l));
+    g.appendChild(hit);
+    g.appendChild(svgEl('circle',{cx:x, cy:yTop+16, r:20, class:'sel-ring', fill:'none', 'pointer-events':'none'}));
+    stage.appendChild(g);
+  });
+
+  // ---- LED (bumpers + modulos, con stacking) ----
+  const yTop = LAYOUT.trussY+th;
+  stacks.forEach(item=>{
+    const cx = (item.cols[0]*0.5 + (item.cols.length*0.5)/2);
+    const x = mToPx(cx);
+    const yBase = yTop + 20 + item.topM*state.scale;
+    const wPx = item.cols.length*0.5*state.scale;
+    if(item.kind==='bumper'){
+      const b=item.obj;
+      const g=svgEl('g',{class:'elem bumper'+(state.selected&&state.selected.kind==='bumper'&&state.selected.id===b.id?' selected':''), 'data-id':b.id,'data-kind':'bumper'});
+      const hpx = item.hM*state.scale;
+      const bColor = b.color || DEFAULT_COLORS.bumper;
+      g.appendChild(svgEl('rect',{x:x-wPx/2,y:yBase,width:wPx,height:Math.max(6,hpx), fill:hexToRgba(bColor,.3), stroke:bColor,'stroke-width':1.8}));
+      if(b.type==='doble'){
+        g.appendChild(svgEl('circle',{cx:x-wPx/4,cy:yBase-4,r:3,fill:'none',stroke:bColor,'stroke-width':1.4}));
+        g.appendChild(svgEl('circle',{cx:x+wPx/4,cy:yBase-4,r:3,fill:'none',stroke:bColor,'stroke-width':1.4}));
+      } else {
+        g.appendChild(svgEl('circle',{cx:x,cy:yBase-4,r:3,fill:'none',stroke:bColor,'stroke-width':1.4}));
+      }
+      const t=svgEl('text',{x,y:yBase+hpx+11,class:'elem-sub'}); t.textContent='bumper '+b.type+' · '+weightOfBumper(b)+'kg';
+      g.appendChild(t);
+      const hit=svgEl('rect',{x:x-wPx/2-4,y:yBase-8,width:wPx+8,height:Math.max(6,hpx)+16, fill:'transparent'});
+      hit.addEventListener('pointerdown', e=>startDragElem(e,'bumper', b.id, b));
+      g.appendChild(hit);
+      g.appendChild(svgEl('rect',{x:x-wPx/2-4,y:yBase-8,width:wPx+8,height:Math.max(6,hpx)+16, class:'sel-ring', fill:'none', 'pointer-events':'none'}));
+      stage.appendChild(g);
+    } else {
+      const m=item.obj;
+      const hpx = item.hM*state.scale;
+      const mColor = m.color || DEFAULT_COLORS.module;
+      const g=svgEl('g',{class:'elem module'+(state.selected&&state.selected.kind==='module'&&state.selected.id===m.id?' selected':''), 'data-id':m.id,'data-kind':'module'});
+      g.appendChild(svgEl('rect',{x:x-wPx/2,y:yBase,width:wPx,height:hpx, fill:hexToRgba(mColor,.28), stroke:mColor,'stroke-width':1.6}));
+      // rejilla simple
+      for(let gx=1; gx<item.cols.length; gx++){
+        g.appendChild(svgEl('line',{x1:x-wPx/2+gx*(wPx/item.cols.length), y1:yBase, x2:x-wPx/2+gx*(wPx/item.cols.length), y2:yBase+hpx, stroke:mColor,'stroke-width':.6,opacity:.6}));
+      }
+      const t=svgEl('text',{x,y:yBase+hpx/2+3,class:'elem-sub'}); t.textContent=m.type+' · '+weightOfModule(m)+'kg';
+      g.appendChild(t);
+      const hit=svgEl('rect',{x:x-wPx/2,y:yBase,width:wPx,height:hpx, fill:'transparent'});
+      hit.addEventListener('pointerdown', e=>startDragElem(e,'module', m.id, m));
+      g.appendChild(hit);
+      g.appendChild(svgEl('rect',{x:x-wPx/2,y:yBase,width:wPx,height:hpx, class:'sel-ring', fill:'none', 'pointer-events':'none'}));
+      stage.appendChild(g);
+    }
+  });
+
+  // ---- pieza flotante (mientras se arrastra un bumper o módulo) ----
+  if(draggingLedId && dragCtx.obj){
+    const obj = dragCtx.obj;
+    const isModule = dragCtx.kind==='module';
+    const wCols = isModule ? (obj.type==='100x50'?2:1) : 1;
+    const wM = wCols*0.5;
+    const hM = isModule ? (obj.type==='50x100'?1.0:0.5) : 0.16;
+    const gx = mToPx(obj.xLeft), gy = yTop + 20;
+    const wPx = wM*state.scale, hPx = Math.max(6,hM*state.scale);
+    const color = obj.color || (isModule?DEFAULT_COLORS.module:DEFAULT_COLORS.bumper);
+    const ghost = svgEl('g',{opacity:'0.75','pointer-events':'none'});
+    ghost.appendChild(svgEl('rect',{x:gx-3,y:gy-3,width:wPx+6,height:hPx+6, fill:hexToRgba(color,.18), stroke:color,'stroke-width':1.4,'stroke-dasharray':'4 3',rx:4}));
+    ghost.appendChild(svgEl('rect',{x:gx,y:gy,width:wPx,height:hPx, fill:hexToRgba(color,.4), stroke:color,'stroke-width':2}));
+    const glabel = svgEl('text',{x:gx+wPx/2, y:gy-8, 'text-anchor':'middle', fill:color, 'font-size':10,'font-weight':700});
+    glabel.textContent = isModule ? obj.type : ('bumper '+obj.type);
+    ghost.appendChild(glabel);
+    stage.appendChild(ghost);
+  }
+
+  renderProperties();
+  renderResults();
+  renderWeightTypes();
+}
+
+/* ============================== DRAG & DROP DESDE PALETA ============================== */
+stageWrap.addEventListener('dragover', e=> e.preventDefault());
+stageWrap.addEventListener('drop', e=>{
+  e.preventDefault();
+  let data;
+  try{ data = JSON.parse(e.dataTransfer.getData('text/plain')); }catch(err){ return; }
+  const rect = stage.getBoundingClientRect();
+  const px = e.clientX - rect.left;
+  const rawM = pxToM(px);
+
+  if(data.kind==='truss'){
+    addTrussSegment(data.len, rawM);
+  } else if(data.kind==='support'){
+    addSupport(data.type, rawM);
+  } else if(data.kind==='load'){
+    addLoad(rawM);
+  } else if(data.kind==='bumper'){
+    addBumper(data.sub, rawM);
+  } else if(data.kind==='module'){
+    addModule(data.sub, rawM);
+  }
+  render();
+});
+
+function addTrussSegment(len, rawM){
+  const joints = chainJoints();
+  let insertIdx = state.chain.length;
+  if(joints.length>1){
+    let bestD=Infinity;
+    joints.forEach((j,i)=>{ const d=Math.abs(j-rawM); if(d<bestD){bestD=d; insertIdx=i;} });
+  } else { insertIdx=0; }
+  state.chain.splice(insertIdx, 0, {id:newId(), len});
+}
+
+function addSupport(type, rawM){
+  const tl = totalLength();
+  let x;
+  if(type==='cubo'){
+    x = (rawM <= tl/2) ? 0 : tl;
+  } else {
+    x = snapX(Math.max(0, Math.min(tl, rawM)));
+  }
+  const s = {id:newId(), type, x};
+  state.supports.push(s);
+  state.selected = {kind:'support', id:s.id};
+}
+
+function addLoad(rawM){
+  const tl=totalLength();
+  const x = snapX(Math.max(0, Math.min(tl, rawM)));
+  const l = {id:newId(), x, name:'Foco', weight: state.types.foco_default, color: DEFAULT_COLORS.foco};
+  state.loads.push(l);
+  state.selected = {kind:'load', id:l.id};
+}
+
+function addBumper(sub, rawM){
+  const tl=totalLength();
+  let xLeft = snapLeftEdgeGrid(Math.max(0, Math.min(tl-0.5, rawM-0.25)));
+  xLeft = Math.max(0, Math.min(tl-0.5, xLeft));
+  const b={id:newId(), type:sub, xLeft, color: DEFAULT_COLORS.bumper};
+  state.bumpers.push(b);
+  state.selected={kind:'bumper', id:b.id};
+}
+
+function addModule(sub, rawM){
+  const tl=totalLength();
+  const wCols = sub==='100x50' ? 2 : 1;
+  let xLeft = snapLeftEdgeGrid(Math.max(0, Math.min(tl-0.5*wCols, rawM-0.25*wCols)));
+  xLeft = Math.max(0, Math.min(tl-0.5*wCols, xLeft));
+  const m={id:newId(), type:sub, xLeft, color: DEFAULT_COLORS.module};
+  state.modules.push(m);
+  state.selected={kind:'module', id:m.id};
+}
+
+/* ============================== DRAG DE ELEMENTOS EXISTENTES ============================== */
+let dragCtx=null;
+const DRAG_CLICK_THRESHOLD_PX = 4; // por debajo de esto, un pointerdown+up se trata como simple clic de selección
+
+function startDragSeg(e, segId){
+  e.preventDefault(); e.stopPropagation();
+  select('seg', segId);
+  dragCtx={kind:'seg', id:segId, moved:false, startX:e.clientX, startY:e.clientY, rawM:null};
+  document.body.classList.add('is-dragging');
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onDragUp, {once:true});
+}
+function startDragElem(e, kind, id, obj){
+  e.preventDefault(); e.stopPropagation();
+  select(kind, id);
+  dragCtx={kind, id, obj, moved:false, startX:e.clientX, startY:e.clientY};
+  document.body.classList.add('is-dragging');
+  window.addEventListener('pointermove', onDragMove);
+  window.addEventListener('pointerup', onDragUp, {once:true});
+}
+function onDragMove(e){
+  if(!dragCtx) return;
+  if(!dragCtx.moved){
+    const dx=Math.abs(e.clientX-dragCtx.startX), dy=Math.abs(e.clientY-dragCtx.startY);
+    if(dx<DRAG_CLICK_THRESHOLD_PX && dy<DRAG_CLICK_THRESHOLD_PX) return; // aún no se considera arrastre
+  }
+  dragCtx.moved=true;
+  const rect=stage.getBoundingClientRect();
+  const rawM = pxToM(e.clientX-rect.left);
+  const tl=totalLength();
+  if(dragCtx.kind==='seg'){
+    // no se muta el orden real hasta soltar: solo guardamos la posición libre del cursor
+    // para que la pieza "flote" con él; render() calcula la vista previa y el punto de inserción.
+    dragCtx.rawM = rawM;
+  } else if(dragCtx.kind==='support'){
+    const s=dragCtx.obj;
+    if(s.type==='cubo'){
+      s.x = (rawM <= tl/2) ? 0 : tl;
+    } else {
+      s.x = snapX(Math.max(0, Math.min(tl, rawM)));
+    }
+  } else if(dragCtx.kind==='load'){
+    dragCtx.obj.x = snapX(Math.max(0, Math.min(tl, rawM)));
+  } else if(dragCtx.kind==='bumper'){
+    // sigue el cursor libremente mientras se arrastra; el ajuste a la rejilla de 50cm se aplica al soltar
+    dragCtx.obj.xLeft = Math.max(0, Math.min(Math.max(0,tl-0.5), rawM-0.25));
+  } else if(dragCtx.kind==='module'){
+    const wCols = dragCtx.obj.type==='100x50' ? 2 : 1;
+    dragCtx.obj.xLeft = Math.max(0, Math.min(Math.max(0,tl-0.5*wCols), rawM-0.25*wCols));
+  }
+  render();
+}
+function onDragUp(){
+  window.removeEventListener('pointermove', onDragMove);
+  document.body.classList.remove('is-dragging');
+  if(dragCtx && dragCtx.moved){
+    const tl = totalLength();
+    if(dragCtx.kind==='seg'){
+      const idx = state.chain.findIndex(c=>c.id===dragCtx.id);
+      if(idx>=0){
+        const [seg] = state.chain.splice(idx,1);
+        let insertIdx = dragCtx.pendingIdx;
+        if(insertIdx==null) insertIdx = idx;
+        insertIdx = Math.max(0, Math.min(state.chain.length, insertIdx));
+        state.chain.splice(insertIdx, 0, seg);
+      }
+    } else if(dragCtx.kind==='bumper'){
+      const b=dragCtx.obj;
+      b.xLeft = Math.max(0, Math.min(Math.max(0,tl-0.5), snapLeftEdgeGrid(b.xLeft)));
+    } else if(dragCtx.kind==='module'){
+      const m=dragCtx.obj;
+      const wCols = m.type==='100x50' ? 2 : 1;
+      m.xLeft = Math.max(0, Math.min(Math.max(0,tl-0.5*wCols), snapLeftEdgeGrid(m.xLeft)));
+    }
+  }
+  dragCtx=null;
+  render();
+}
+
+/* ============================== SELECCIÓN / BORRADO ============================== */
+function select(kind, id){ state.selected={kind,id}; render(); }
+stage.addEventListener('click', e=>{
+  if(e.target===stage){ state.selected=null; render(); }
+});
+window.addEventListener('keydown', e=>{
+  if((e.key==='Delete'||e.key==='Backspace') && state.selected){
+    const tag=(document.activeElement||{}).tagName;
+    if(tag==='INPUT' || tag==='TEXTAREA') return;
+    deleteSelected();
+  }
+});
+function deleteSelected(){
+  if(!state.selected) return;
+  const {kind,id}=state.selected;
+  if(kind==='seg') state.chain = state.chain.filter(c=>c.id!==id);
+  else if(kind==='support') state.supports = state.supports.filter(s=>s.id!==id);
+  else if(kind==='load') state.loads = state.loads.filter(l=>l.id!==id);
+  else if(kind==='bumper') state.bumpers = state.bumpers.filter(b=>b.id!==id);
+  else if(kind==='module') state.modules = state.modules.filter(m=>m.id!==id);
+  state.selected=null;
+  render();
+}
+
+/* ============================== SIMETRÍA (duplicar espejo) ============================== */
+function mirrorSelected(){
+  if(!state.selected) return;
+  const tl=totalLength();
+  const {kind,id}=state.selected;
+  if(kind==='support'){
+    const s=state.supports.find(x=>x.id===id); if(!s||s.type==='cubo') return;
+    const ns={id:newId(), type:s.type, x: Math.round((tl-s.x)*100)/100};
+    state.supports.push(ns); state.selected={kind:'support', id:ns.id};
+  } else if(kind==='load'){
+    const l=state.loads.find(x=>x.id===id); if(!l) return;
+    const nl={id:newId(), x: Math.round((tl-l.x)*100)/100, name:l.name, weight:l.weight, color:l.color};
+    state.loads.push(nl); state.selected={kind:'load', id:nl.id};
+  } else if(kind==='bumper'){
+    const b=state.bumpers.find(x=>x.id===id); if(!b) return;
+    const nx = Math.round((tl-(b.xLeft+0.5))/0.5)*0.5;
+    const nb={id:newId(), type:b.type, xLeft: Math.max(0,Math.min(tl-0.5,nx)), color:b.color};
+    state.bumpers.push(nb); state.selected={kind:'bumper', id:nb.id};
+  }
+  render();
+}
+
+/* ============================== PANEL DE PROPIEDADES ============================== */
+function renderProperties(){
+  const box=document.getElementById('propBody');
+  box.innerHTML='';
+  if(!state.selected){ box.className='empty'; box.textContent='Selecciona un elemento del puente para editar sus propiedades.'; return; }
+  box.className='';
+  const {kind,id}=state.selected;
+
+  function fieldNumber(labelTxt, val, onChange, step){
+    const wrap=document.createElement('div'); wrap.className='propfield';
+    const lbl=document.createElement('label'); lbl.textContent=labelTxt; wrap.appendChild(lbl);
+    const inp=document.createElement('input'); inp.type='number'; inp.value=val; inp.step=step||0.1;
+    inp.style.width='100%';
+    inp.addEventListener('input', ()=>{ onChange(parseFloat(inp.value)||0); render(); });
+    wrap.appendChild(inp);
+    return wrap;
+  }
+  function fieldText(labelTxt, val, onChange){
+    const wrap=document.createElement('div'); wrap.className='propfield';
+    const lbl=document.createElement('label'); lbl.textContent=labelTxt; wrap.appendChild(lbl);
+    const inp=document.createElement('input'); inp.type='text'; inp.value=val;
+    inp.addEventListener('input', ()=>{ onChange(inp.value); render(); });
+    wrap.appendChild(inp);
+    return wrap;
+  }
+  function btnRow(){
+    const row=document.createElement('div'); row.style.display='flex'; row.style.gap='6px'; row.style.marginTop='10px';
+    const del=document.createElement('button'); del.textContent='🗑 Eliminar'; del.addEventListener('click', deleteSelected);
+    row.appendChild(del);
+    return row;
+  }
+  const SWATCHES = ['#ffb84d','#ff5d6c','#5b9dff','#7ee0c3','#c77dff','#ffe066','#ff8fab','#a3e635','#38bdf8','#f472b6'];
+  function fieldColor(labelTxt, val, onChange){
+    const wrap=document.createElement('div'); wrap.className='propfield';
+    const lbl=document.createElement('label'); lbl.textContent=labelTxt; wrap.appendChild(lbl);
+    const row=document.createElement('div'); row.className='row';
+    const inp=document.createElement('input'); inp.type='color'; inp.value=val||'#ffb84d';
+    inp.style.width='40px'; inp.style.height='28px'; inp.style.padding='0'; inp.style.cursor='pointer';
+    inp.addEventListener('input', ()=>{ onChange(inp.value); render(); });
+    row.appendChild(inp);
+    const sw=document.createElement('div'); sw.style.display='flex'; sw.style.gap='4px'; sw.style.flexWrap='wrap';
+    SWATCHES.forEach(c=>{
+      const b=document.createElement('button'); b.style.width='16px'; b.style.height='16px'; b.style.padding='0';
+      b.style.borderRadius='4px'; b.style.background=c; b.style.border='1px solid var(--border)';
+      b.title=c;
+      b.addEventListener('click', ()=>{ inp.value=c; onChange(c); render(); });
+      sw.appendChild(b);
+    });
+    row.appendChild(sw);
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  if(kind==='seg'){
+    const seg=state.chain.find(c=>c.id===id); if(!seg) return;
+    const p=document.createElement('div'); p.innerHTML='<b>Tramo de truss</b>';
+    box.appendChild(p);
+    const info=document.createElement('div'); info.className='propfield';
+    info.innerHTML = 'Longitud: '+seg.len+' m · Peso propio: ~'+(seg.len*SELF_WEIGHT_KG_PER_M).toFixed(1)+' kg<br><span style="color:var(--muted);font-size:10.5px">Arrastra el tramo lateralmente para reordenar el puente.</span>';
+    box.appendChild(info);
+    box.appendChild(btnRow());
+  } else if(kind==='support'){
+    const s=state.supports.find(x=>x.id===id); if(!s) return;
+    const names={torre:'Torre de soporte', motor:'Punto de motor', cubo:'Cubo con patas'};
+    const p=document.createElement('div'); p.innerHTML='<b>'+names[s.type]+'</b>'; box.appendChild(p);
+    if(s.type==='cubo'){
+      const info=document.createElement('div'); info.className='propfield';
+      info.textContent='Posición: extremo '+(s.x===0?'izquierdo':'derecho')+' (fijo, solo puede ir en los extremos).';
+      box.appendChild(info);
+    } else {
+      box.appendChild(fieldNumber('Posición desde el inicio (m)', s.x, v=>{ s.x=Math.max(0,Math.min(totalLength(),v)); }, 0.05));
+      const mb=document.createElement('button'); mb.textContent='⇋ Duplicar simétrico'; mb.style.marginTop='4px';
+      mb.addEventListener('click', mirrorSelected);
+      box.appendChild(mb);
+    }
+    box.appendChild(btnRow());
+  } else if(kind==='load'){
+    const l=state.loads.find(x=>x.id===id); if(!l) return;
+    box.appendChild((()=>{const d=document.createElement('div');d.innerHTML='<b>Foco / elemento colgado</b>';return d;})());
+    box.appendChild(fieldText('Leyenda / nombre', l.name, v=>l.name=v));
+    box.appendChild(fieldNumber('Peso (kg)', l.weight, v=>l.weight=v, 0.5));
+    box.appendChild(fieldColor('Color', l.color||DEFAULT_COLORS.foco, v=>l.color=v));
+    box.appendChild(fieldNumber('Posición desde el inicio (m)', l.x, v=>{ l.x=Math.max(0,Math.min(totalLength(),v)); }, 0.05));
+    const mb=document.createElement('button'); mb.textContent='⇋ Duplicar simétrico'; mb.style.marginTop='4px';
+    mb.addEventListener('click', mirrorSelected);
+    box.appendChild(mb);
+    box.appendChild(btnRow());
+  } else if(kind==='bumper'){
+    const b=state.bumpers.find(x=>x.id===id); if(!b) return;
+    box.appendChild((()=>{const d=document.createElement('div');d.innerHTML='<b>Bumper '+b.type+'</b>';return d;})());
+    const info=document.createElement('div'); info.className='propfield';
+    info.innerHTML='Peso: '+weightOfBumper(b)+' kg <span style="color:var(--muted)">(definido por tipo, ver panel "Pesos por tipo")</span>';
+    box.appendChild(info);
+    box.appendChild(fieldColor('Color', b.color||DEFAULT_COLORS.bumper, v=>b.color=v));
+    box.appendChild(fieldNumber('Posición borde izq. (m)', b.xLeft, v=>{ b.xLeft=Math.max(0,Math.min(totalLength()-0.5,v)); }, 0.5));
+    const mb=document.createElement('button'); mb.textContent='⇋ Duplicar simétrico'; mb.style.marginTop='4px';
+    mb.addEventListener('click', mirrorSelected);
+    box.appendChild(mb);
+    box.appendChild(btnRow());
+  } else if(kind==='module'){
+    const m=state.modules.find(x=>x.id===id); if(!m) return;
+    box.appendChild((()=>{const d=document.createElement('div');d.innerHTML='<b>Módulo LED '+m.type+'</b>';return d;})());
+    const info=document.createElement('div'); info.className='propfield';
+    info.innerHTML='Peso: '+weightOfModule(m)+' kg <span style="color:var(--muted)">(definido por tipo)</span>';
+    box.appendChild(info);
+    box.appendChild(fieldColor('Color', m.color||DEFAULT_COLORS.module, v=>m.color=v));
+    box.appendChild(fieldNumber('Posición borde izq. (m)', m.xLeft, v=>{ m.xLeft=Math.max(0,v); }, 0.5));
+    box.appendChild(btnRow());
+  }
+}
+
+/* ============================== PESOS POR TIPO ============================== */
+function renderWeightTypes(){
+  const box=document.getElementById('weightTypes');
+  box.innerHTML='';
+  const labels={
+    foco_default:'Foco (peso por defecto al crear uno nuevo)',
+    bumper_simple:'Bumper simple', bumper_doble:'Bumper doble',
+    mod_50x50:'Módulo LED 50x50', mod_50x100:'Módulo LED 50x100', mod_100x50:'Módulo LED 100x50'
+  };
+  Object.keys(labels).forEach(k=>{
+    const row=document.createElement('div'); row.className='row';
+    const span=document.createElement('span'); span.textContent=labels[k];
+    const inp=document.createElement('input'); inp.type='number'; inp.step='0.5'; inp.value=state.types[k];
+    inp.addEventListener('input', ()=>{ state.types[k]=parseFloat(inp.value)||0; render(); });
+    row.appendChild(span); row.appendChild(inp);
+    box.appendChild(row);
+  });
+}
+
+/* ============================== RESULTADOS / CÁLCULO ============================== */
+function renderResults(){
+  const box=document.getElementById('results');
+  box.innerHTML='';
+  const tl=totalLength();
+  if(tl<=0){ box.innerHTML='<div class="empty">Construye primero el puente de truss.</div>'; return; }
+
+  const supPositions = [...new Set(state.supports.map(s=>Math.round(s.x*1000)/1000))].sort((a,b)=>a-b);
+  if(supPositions.length<2){
+    box.innerHTML = '<div class="banner warn">Añade al menos 2 apoyos (torres, puntos de motor o cubos con patas) para poder calcular la capacidad de carga.</div>';
+    return;
+  }
+
+  const pointLoads = collectPointLoads();
+  const opts = {includeSelf: state.includeSelf, marginPct: state.marginPct};
+
+  let html='';
+  let worst=null;
+
+  // voladizos
+  const cantilevers=[];
+  if(supPositions[0] > 0.01){
+    const w = pointLoads.filter(p=>p.x<supPositions[0]).reduce((s,p)=>s+p.w,0) + (state.includeSelf? supPositions[0]*SELF_WEIGHT_KG_PER_M : supPositions[0]*SELF_WEIGHT_KG_PER_M*0);
+    cantilevers.push({side:'izquierdo', len:supPositions[0], w});
+  }
+  if(supPositions[supPositions.length-1] < tl-0.01){
+    const len = tl-supPositions[supPositions.length-1];
+    const w = pointLoads.filter(p=>p.x>supPositions[supPositions.length-1]).reduce((s,p)=>s+p.w,0);
+    cantilevers.push({side:'derecho', len, w});
+  }
+
+  const rows=[];
+  for(let i=0;i<supPositions.length-1;i++){
+    const res = analyzeSpan(supPositions[i], supPositions[i+1], pointLoads, opts);
+    if(!res) continue;
+    rows.push(res);
+    if(!worst || res.util>worst.util) worst=res;
+  }
+
+  if(worst){
+    const pct = isFinite(worst.util) ? (worst.util*100) : 999;
+    const cls = pct<70?'ok':(pct<=100?'warn':'bad');
+    html += `<div class="banner ${cls==='bad'?'bad':(cls==='warn'?'warn':'info')}">
+      <b>Tramo más exigido: ${worst.spanStart.toFixed(2)}–${worst.spanEnd.toFixed(2)}m (luz ${worst.L.toFixed(2)}m)</b><br>
+      Capacidad usada: <b>${pct.toFixed(0)}%</b>
+      ${worst.remainingKg!==null ? ' · Restante estimado: ~'+Math.max(0,worst.remainingKg).toFixed(1)+' kg' : ''}
+      ${worst.extrapolated ? '<br>⚠️ Luz fuera del rango certificado de la tabla (2–14m); valor extrapolado.' : ''}
+    </div>`;
+  }
+
+  if(cantilevers.length){
+    cantilevers.forEach(c=>{
+      html += `<div class="banner warn">⚠️ Voladizo ${c.side}: ${c.len.toFixed(2)}m con ~${c.w.toFixed(1)}kg de carga. No se calcula (fuera del alcance de esta tabla) — revísalo aparte.</div>`;
+    });
+  }
+
+  html += '<table class="spans"><thead><tr><th>Vano</th><th>Luz</th><th>Carga</th><th>Uso</th><th>Restante ~</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const pct = isFinite(r.util) ? r.util*100 : 999;
+    const cls = pct<70?'ok':(pct<=100?'warn':'bad');
+    html += `<tr>
+      <td>${r.spanStart.toFixed(2)}–${r.spanEnd.toFixed(2)}m</td>
+      <td>${r.L.toFixed(2)}m</td>
+      <td>${r.totalLoad.toFixed(1)}kg</td>
+      <td><span class="pill ${cls}">${pct.toFixed(0)}%</span></td>
+      <td>${r.remainingKg!==null ? '~'+Math.max(0,r.remainingKg).toFixed(1)+'kg' : '—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  html += `<div class="legend">
+    <span><i style="background:var(--green)"></i> &lt;70% uso</span>
+    <span><i style="background:var(--amber)"></i> 70–100%</span>
+    <span><i style="background:var(--red)"></i> &gt;100% (excede capacidad)</span>
+  </div>`;
+
+  box.innerHTML = html;
+}
+
+/* ============================== CONTROLES SUPERIORES ============================== */
+document.getElementById('zoomRange').addEventListener('input', e=>{ state.scale=parseInt(e.target.value); render(); });
+document.getElementById('snapProx').addEventListener('change', e=>{ state.snap.prox=e.target.checked; });
+document.getElementById('snapGrid').addEventListener('change', e=>{ state.snap.grid=e.target.checked; });
+document.getElementById('snapCenter').addEventListener('change', e=>{ state.snap.center=e.target.checked; });
+document.getElementById('includeSelf').addEventListener('change', e=>{ state.includeSelf=e.target.checked; render(); });
+document.getElementById('marginPct').addEventListener('input', e=>{ state.marginPct=parseFloat(e.target.value)||0; render(); });
+
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  if(!confirm('¿Vaciar todo el puente y empezar de nuevo?')) return;
+  state.chain=[]; state.supports=[]; state.loads=[]; state.bumpers=[]; state.modules=[]; state.selected=null;
+  render();
+});
+
+document.getElementById('btnHelp').addEventListener('click', ()=> document.getElementById('helpbox').classList.add('show'));
+document.getElementById('btnWtHelp').addEventListener('click', ()=> document.getElementById('helpbox').classList.add('show'));
+document.getElementById('helpClose').addEventListener('click', ()=> document.getElementById('helpbox').classList.remove('show'));
+document.getElementById('helpbox').addEventListener('click', e=>{ if(e.target.id==='helpbox') e.currentTarget.classList.remove('show'); });
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const data = JSON.stringify({
+    chain: state.chain, supports: state.supports, loads: state.loads,
+    bumpers: state.bumpers, modules: state.modules, types: state.types,
+    includeSelf: state.includeSelf, marginPct: state.marginPct
+  }, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='puente-truss.json'; a.click();
+  URL.revokeObjectURL(url);
+});
+document.getElementById('btnImport').addEventListener('click', ()=> document.getElementById('fileImport').click());
+document.getElementById('fileImport').addEventListener('change', e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload = ()=>{
+    try{
+      const d = JSON.parse(reader.result);
+      state.chain = d.chain||[]; state.supports=d.supports||[]; state.loads=d.loads||[];
+      state.bumpers=d.bumpers||[]; state.modules=d.modules||[];
+      state.types = Object.assign(state.types, d.types||{});
+      state.includeSelf = !!d.includeSelf; state.marginPct = d.marginPct||0;
+      document.getElementById('includeSelf').checked = state.includeSelf;
+      document.getElementById('marginPct').value = state.marginPct;
+      idc = 1 + Math.max(0, ...[...state.chain,...state.supports,...state.loads,...state.bumpers,...state.modules]
+        .map(o=>parseInt((o.id||'e0').slice(1))||0));
+      ensureColors();
+      state.selected=null;
+      render();
+    }catch(err){ alert('Archivo no válido: '+err.message); }
+  };
+  reader.readAsText(file);
+});
+
+/* intento de autoguardado local (best-effort, no crítico) */
+try{
+  const saved = localStorage.getItem('puente_truss_autosave');
+  if(saved){
+    const d = JSON.parse(saved);
+    state.chain=d.chain||[]; state.supports=d.supports||[]; state.loads=d.loads||[];
+    state.bumpers=d.bumpers||[]; state.modules=d.modules||[];
+    state.types=Object.assign(state.types, d.types||{});
+    state.includeSelf=!!d.includeSelf; state.marginPct=d.marginPct||0;
+    idc = 1 + Math.max(0, ...[...state.chain,...state.supports,...state.loads,...state.bumpers,...state.modules]
+      .map(o=>parseInt((o.id||'e0').slice(1))||0), 0);
+    ensureColors();
+  }
+}catch(err){ /* ignorar: almacenamiento no disponible */ }
+
+function autosave(){
+  try{
+    localStorage.setItem('puente_truss_autosave', JSON.stringify({
+      chain:state.chain, supports:state.supports, loads:state.loads,
+      bumpers:state.bumpers, modules:state.modules, types:state.types,
+      includeSelf:state.includeSelf, marginPct:state.marginPct
+    }));
+  }catch(err){ /* ignorar */ }
+}
+setInterval(autosave, 4000);
+
+document.getElementById('includeSelf').checked = state.includeSelf;
+document.getElementById('marginPct').value = state.marginPct;
+
+/* ============================== INIT ============================== */
+buildPalette();
+render();
+
+})();
+</script>
+</body>
+</html>
